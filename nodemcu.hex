@@ -1,0 +1,211 @@
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+
+const char* ssid = "iPhone de Igor"; // Substitua pelo seu SSID
+const char* password = "12345678"; // Substitua pela sua senha
+
+AsyncWebServer server(80);
+
+float pValue = 0.0;
+float iValue = 0.0;
+float dValue = 0.0;
+int positionValue = 0;
+
+void setup() {
+  Serial.begin(115200);
+
+  //Configura PWM
+  analogWriteFreq(6000);
+  analogWrite(4, 512);
+  // Conecte-se à rede Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Conectando à rede Wi-Fi...");
+  }
+  Serial.println("Conectado à rede Wi-Fi");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Configure o servidor web
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", getPageHTML());
+  });
+
+  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (request->hasParam("pValue") && request->hasParam("iValue") && request->hasParam("dValue") && request->hasParam("manualValue")) {
+      pValue = request->getParam("pValue")->value().toFloat();
+      iValue = request->getParam("iValue")->value().toFloat();
+      dValue = request->getParam("dValue")->value().toFloat();
+      positionValue = request->getParam("manualValue")->value().toInt();
+
+      // Agora você pode usar esses valores como desejar
+      Serial.print("$&");
+      Serial.print(int(pValue)*100);
+      Serial.print("&");
+      Serial.print(int(iValue)*100);
+      Serial.print("&");
+      Serial.print(int(dValue)*100);
+      Serial.print("&");
+      Serial.print(int(manualValue)*100);
+      Serial.print("#");
+      int value = map((int)(manualValue),0,100,0,1023);
+      analogWrite(4, value);
+      request->send(200, "text/plain", "");
+    } else {
+      request->send(400, "text/plain", "Parâmetros ausentes na URL");
+    }
+  });
+
+  server.begin();
+}
+
+void loop() {
+  // Seu código loop, se necessário
+}
+
+String getPageHTML() {
+String page="<!DOCTYPE html>";
+page+="<html lang='pt-br'>";
+page+="<head>";
+page+="    <meta charset='UTF-8'>";
+page+="    <meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+page+="    <title>Controlador PID</title>";
+page+="    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css' rel='stylesheet'";
+page+="        integrity='sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3' crossorigin='anonymous'>";
+page+="    <script src='https://cdn.jsdelivr.net/npm/websocket@latest/dist/websocket.min.js'></script>";
+page+="    <style>";
+page+="        .layout {";
+page+="            background-color: transparent;";
+page+="            width: 50%;";
+page+="            height: 80%;";
+page+="            border-top: 2px solid #FFFFFF75;";
+page+="            border-left: 2px solid #FFFFFF75;";
+page+="            box-shadow: 5px 5px 12px #00000035;";
+page+="            background: #FFFFFF75;";
+page+="            border-radius: 15px;";
+page+="            overflow: hidden;";
+page+="            backdrop-filter: blur(4px);";
+page+="        }";
+page+="        .container {";
+page+="            margin: 0 auto;";
+page+="            display: flex;";
+page+="            justify-content: center;";
+page+="            align-items: center;";
+page+="        }";
+page+="        button {";
+page+="            padding: 1.3em 3em;";
+page+="            font-size: 12px;";
+page+="            letter-spacing: 2.5px;";
+page+="            font-weight: 500;";
+page+="            color: #000;";
+page+="            background-color: #fff;";
+page+="            border: none;";
+page+="            border-radius: 45px;";
+page+="            box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);";
+page+="            transition: all 0.3s ease 0s;";
+page+="            cursor: pointer;";
+page+="            outline: none;";
+page+="        }";
+page+="        button:hover {";
+page+="            transform: translateY(-7px);";
+page+="        }";
+page+="        button:active {";
+page+="            transform: translateY(-1px);";
+page+="        }";
+page+="    </style>";
+page+="</head>";
+page+="<body>";
+page+="    <div class='container '>";
+page+="        <div class='layout'>";
+page+="  <form id="parameterForm">";
+page+="            <div class='titulo'>";
+page+="                <h1>Controlador PID</h1>";
+page+="            </div>";
+page+="            <div class='row py-2'>";
+page+="                <div class='col-8 col-sm-7 col-md-5 col-lg-4 col-xl-3 mx-auto'>";
+page+="                    <input type='range' class='form-range' min='0' max='50' value='0' id='slider-1'>";
+page+="                    <label for='slider-1'>Proportional (P)</label>";
+page+="                    <span id='slider-value-1'>0</span>";
+page+="                </div>";
+page+="            </div>";
+page+="            <div class='row py-2'>";
+page+="                <div class='col-8 col-sm-7 col-md-5 col-lg-4 col-xl-3 mx-auto'>";
+page+="                    <input type='range' class='form-range' min='0' max='50' value='0' id='slider-2'>";
+page+="                    <label for='slider-2'>Integral (i)</label>";
+page+="                    <span id='slider-value-2'>0</span>";
+page+="                </div>";
+page+="            </div>";
+page+="            <div class='row py-2'>";
+page+="                <div class='col-8 col-sm-7 col-md-5 col-lg-4 col-xl-3 mx-auto'>";
+page+="                    <input type='range' class='form-range' min='0' max='50' value='0' id='slider-3'>";
+page+="                    <label for='slider-3'>Derivativa (D)</label>";
+page+="                    <span id='slider-value-3'>0</span>";
+page+="                </div>";
+page+="            </div>";
+page+="            <div class='row py-2'>";
+page+="                <div class='col-8 col-sm-7 col-md-5 col-lg-4 col-xl-3 mx-auto'>";
+page+="                    <button class='btn btn-primary' data-bs-toggle='collapse' data-bs-target='#myCollapse'";
+page+="                        aria-expanded='false' aria-controls='myCollapse'>Manual</button>";
+page+="                    <div class='collapse' id='myCollapse' aria-labelledby='myCollapseLabel'>";
+page+="                        <input type='range' class='form-range' min='0' max='50' value='0' id='slider-manual'>";
+page+="                        <label for='slider-manual'>Manual</label>";
+page+="                        <span id='slider-value-manual'>0</span>";
+page+="                    </div>";
+page+="                </div>";
+page+="       </form>";
+page+="            </div>";
+page+="            <div class='row py-2 justify-content-center'>";
+page+="                <div class='col-8 col-sm-7 col-md-5 col-lg-4 col-xl-3 mx-auto'>";
+page+="                    <div class='button'>";
+page+="                        <button type='submit' class='btn btn-success'>Enviar</button>";
+page+="                    </div>";
+page+="                </div>";
+page+="            </div>";
+page+="        </div>";
+page+="    </div>";
+page+="    <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js' integrity='sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4'+1p' crossorigin='anonymous'></script>";
+page+="    <script>";
+page+="const slider1 = document.querySelector('#slider-1');";
+page+="const slider2 = document.querySelector('#slider-2');";
+page+="const slider3 = document.querySelector('#slider-3');";
+page+="const sliderManual = document.querySelector('#slider-manual');";
+page+="const valueDisplay1 = document.querySelector('#slider-value-1');";
+page+="const valueDisplay2 = document.querySelector('#slider-value-2');";
+page+="const valueDisplay3 = document.querySelector('#slider-value-3');";
+page+="const valueDisplayManual = document.querySelector('#slider-value-manual');";
+page+="const sendButton = document.querySelector('.button button');";
+page+="";
+page+="slider1.addEventListener('input', (event) => {";
+page+="  valueDisplay1.textContent = event.target.value;";
+page+="});";
+page+="";
+page+="slider2.addEventListener('input', (event) => {";
+page+="  valueDisplay2.textContent = event.target.value;";
+page+="});";
+page+="";
+page+="slider3.addEventListener('input', (event) => {";
+page+="  valueDisplay3.textContent = event.target.value;";
+page+="});";
+page+="";
+page+="sliderManual.addEventListener('input', (event) => {";
+page+="  valueDisplayManual.textContent = event.target.value;";
+page+="});";
+page+="";
+page+="sendButton.addEventListener('click', () => {";
+page+="  const pValue = slider1.value;";
+page+="  const iValue = slider2.value;";
+page+="  const dValue = slider3.value;";
+page+="  const manualValue = sliderManual.value;";
+page+="";
+page+="";
+page+="  const xhr = new XMLHttpRequest();";
+page+="  xhr.open('GET', '/?p=' + pValue + '&i=' + iValue + '&d=' + dValue + '&manual=' + manualValue);";
+page+="  xhr.send();";
+page+="});";
+page+="    </script>";
+page+="</body>";
+page+="</html>";
+  return page;
+}
